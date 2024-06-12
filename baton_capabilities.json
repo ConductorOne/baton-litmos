@@ -4,7 +4,10 @@
     {
       "resourceType": {
         "id": "course",
-        "displayName": "Course"
+        "displayName": "Course",
+        "traits": [
+          "TRAIT_GROUP"
+        ]
       },
       "capabilities": [
         "CAPABILITY_SYNC"
@@ -13,7 +16,12 @@
     {
       "resourceType": {
         "id": "module",
-        "displayName": "Module"
+        "displayName": "Module",
+        "annotations": [
+          {
+            "@type": "type.googleapis.com/c1.connector.v2.SkipEntitlementsAndGrants"
+          }
+        ]
       },
       "capabilities": [
         "CAPABILITY_SYNC"
@@ -37,6 +45,11 @@
         "displayName": "User",
         "traits": [
           "TRAIT_USER"
+        ],
+        "annotations": [
+          {
+            "@type": "type.googleapis.com/c1.connector.v2.SkipEntitlementsAndGrants"
+          }
         ]
       },
       "capabilities": [
