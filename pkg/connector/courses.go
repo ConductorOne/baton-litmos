@@ -83,7 +83,7 @@ func (o *courseBuilder) List(ctx context.Context, parentResourceID *v2.ResourceI
 // Entitlements always returns an empty slice for users.
 func (o *courseBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
 	var rv []*v2.Entitlement
-	memberOptions := []entitlement.EntitlementOption{
+	assignedOptions := []entitlement.EntitlementOption{
 		entitlement.WithGrantableTo(userResourceType),
 		entitlement.WithDisplayName(fmt.Sprintf("Course %s %s", resource.DisplayName, assignedEntitlement)),
 		entitlement.WithDescription(fmt.Sprintf("Assigned course %s in Litmos", resource.DisplayName)),
@@ -102,8 +102,8 @@ func (o *courseBuilder) Entitlements(_ context.Context, resource *v2.Resource, _
 	entitlements := []*v2.Entitlement{
 		entitlement.NewAssignmentEntitlement(
 			resource,
-			memberEntitlement,
-			memberOptions...,
+			assignedEntitlement,
+			assignedOptions...,
 		),
 		entitlement.NewAssignmentEntitlement(
 			resource,
