@@ -59,7 +59,7 @@ func userResource(ctx context.Context, user *litmos.User, parentResourceID *v2.R
 func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
 	users, nextPageToken, err := o.client.ListUsers(ctx, pToken)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nextPageToken, nil, err
 	}
 
 	resources := make([]*v2.Resource, 0, len(users))

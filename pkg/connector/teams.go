@@ -50,7 +50,7 @@ func teamResource(ctx context.Context, team *litmos.Team, parentResourceID *v2.R
 func (o *teamBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
 	teams, nextPageToken, err := o.client.ListTeams(ctx, pToken)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nextPageToken, nil, err
 	}
 
 	resources := make([]*v2.Resource, 0, len(teams))

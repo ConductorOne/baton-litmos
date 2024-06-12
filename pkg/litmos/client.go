@@ -157,7 +157,7 @@ func (c *Client) ListUsers(ctx context.Context, pToken *pagination.Token) ([]Use
 	res, err := c.Do(ctx, "GET", "/v1.svc/users", query, &usersResp)
 	if err != nil {
 		spew.Dump(res.Body)
-		return nil, "", err
+		return nil, pToken.Token, err
 	}
 
 	spew.Dump(usersResp)
@@ -171,7 +171,7 @@ func (c *Client) ListTeams(ctx context.Context, pToken *pagination.Token) ([]Tea
 	res, err := c.Do(ctx, "GET", "/v1.svc/teams", query, &teamsResp)
 	if err != nil {
 		spew.Dump(res.Body)
-		return nil, "", err
+		return nil, pToken.Token, err
 	}
 
 	spew.Dump(teamsResp)
