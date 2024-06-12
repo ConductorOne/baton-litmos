@@ -76,6 +76,38 @@ func (c *Client) Do(ctx context.Context, method string, path string, query *url.
 	return resp, err
 }
 
+type Course struct {
+	Id                        string `xml:"Id"`
+	Code                      string `xml:"Code"`
+	Name                      string `xml:"Name"`
+	Active                    bool   `xml:"Active"`
+	ForSale                   bool   `xml:"ForSale"`
+	OriginalId                string `xml:"OriginalId"`
+	Description               string `xml:"Description"`
+	EcommerceShortDescription string `xml:"EcommerceShortDescription"`
+	EcommerceLongDescription  string `xml:"EcommerceLongDescription"`
+	CourseCodeForBulkImport   string `xml:"CourseCodeForBulkImport"`
+	Price                     string `xml:"Price"`
+	AccessTillDate            string `xml:"AccessTillDate"`
+	AccessTillDays            string `xml:"AccessTillDays"`
+	CourseTeamLibrary         bool   `xml:"CourseTeamLibrary"`
+	CreatedBy                 string `xml:"CreatedBy"`
+	SeqId                     string `xml:"SeqId"`
+}
+type CoursesResp struct {
+	Courses []Course `xml:"Course"`
+}
+
+type Module struct {
+	Id          string `xml:"Id"`
+	Code        string `xml:"Code"`
+	Name        string `xml:"Name"`
+	Description string `xml:"Description"`
+}
+type ModulesResp struct {
+	Modules []Module `xml:"Module"`
+}
+
 type Team struct {
 	Id                    string `xml:"Id"`
 	Name                  string `xml:"Name"`
@@ -84,7 +116,8 @@ type Team struct {
 }
 
 type TeamsResp struct {
-	Teams []Team `xml:"Team"`
+	XMLName xml.Name `xml:"Teams"`
+	Teams   []Team   `xml:"Team"`
 }
 
 type User struct {
@@ -120,7 +153,6 @@ func pageTokenToQuery(pToken *pagination.Token) *url.Values {
 
 	_, err := strconv.Atoi(pToken.Token)
 	if err != nil {
-		fmt.Printf("error converting token %s to int: %v\n", pToken.Token, err)
 		return query
 	}
 	query.Add("start", pToken.Token)
@@ -144,7 +176,6 @@ func getNextPageToken(pToken *pagination.Token, numItems int) string {
 
 	start, err := strconv.Atoi(pToken.Token)
 	if err != nil {
-		fmt.Printf("error converting token %s to int: %v\n", pToken.Token, err)
 		return ""
 	}
 
@@ -154,9 +185,8 @@ func getNextPageToken(pToken *pagination.Token, numItems int) string {
 func (c *Client) ListUsers(ctx context.Context, pToken *pagination.Token) ([]User, string, error) {
 	usersResp := UsersResp{}
 	query := pageTokenToQuery(pToken)
-	res, err := c.Do(ctx, "GET", "/v1.svc/users", query, &usersResp)
+	_, err := c.Do(ctx, "GET", "/v1.svc/users", query, &usersResp)
 	if err != nil {
-		spew.Dump(res.Body)
 		return nil, pToken.Token, err
 	}
 
@@ -168,13 +198,42 @@ func (c *Client) ListUsers(ctx context.Context, pToken *pagination.Token) ([]Use
 func (c *Client) ListTeams(ctx context.Context, pToken *pagination.Token) ([]Team, string, error) {
 	teamsResp := TeamsResp{}
 	query := pageTokenToQuery(pToken)
-	res, err := c.Do(ctx, "GET", "/v1.svc/teams", query, &teamsResp)
+	_, err := c.Do(ctx, "GET", "/v1.svc/teams", query, &teamsResp)
 	if err != nil {
-		spew.Dump(res.Body)
 		return nil, pToken.Token, err
 	}
 
 	spew.Dump(teamsResp)
 	nextPageToken := getNextPageToken(pToken, len(teamsResp.Teams))
 	return teamsResp.Teams, nextPageToken, nil
+}
+
+func (c *Client) ListCourses(ctx context.Context, pToken *pagination.Token) ([]Course, string, error) {
+	coursesResp := CoursesResp{}
+	query := pageTokenToQuery(pToken)
+	_, err := c.Do(ctx, "GET", "/v1.svc/courses", query, &coursesResp)
+	if err != nil {
+		return nil, pToken.Token, err
+	}
+
+	spew.Dump(coursesResp)
+	nextPageToken := getNextPageToken(pToken, len(coursesResp.Courses))
+	return coursesResp.Courses, nextPageToken, nil
+}
+
+func (c *Client) ListModules(ctx context.Context, pToken *pagination.Token, courseId string) ([]Module, string, error) {
+	modulesResp := ModulesResp{}
+	query := pageTokenToQuery(pToken)
+	path, err := url.JoinPath("/v1.svc/course/", courseId, "/modules")
+	if err != nil {
+		return nil, pToken.Token, err
+	}
+	_, err = c.Do(ctx, "GET", path, query, &modulesResp)
+	if err != nil {
+		return nil, pToken.Token, err
+	}
+
+	spew.Dump(modulesResp)
+	nextPageToken := getNextPageToken(pToken, len(modulesResp.Modules))
+	return modulesResp.Modules, nextPageToken, nil
 }

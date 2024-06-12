@@ -20,6 +20,8 @@ func (d *LitmosConnector) ResourceSyncers(ctx context.Context) []connectorbuilde
 	return []connectorbuilder.ResourceSyncer{
 		newUserBuilder(d.client),
 		newTeamBuilder(d.client),
+		newCourseBuilder(d.client),
+		newModuleBuilder(d.client),
 	}
 }
 
