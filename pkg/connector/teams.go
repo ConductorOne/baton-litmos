@@ -9,6 +9,7 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
+	"github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 )
 
@@ -81,8 +82,29 @@ func (o *teamBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ *
 }
 
 func (o *teamBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
-	// list users for team
-	return nil, "", nil, nil
+
+	users, nextPageToken, err := o.client.ListTeamUsers(ctx, pToken, resource.Id.Resource)
+	if err != nil {
+		return nil, nextPageToken, nil, err
+	}
+
+	rv := make([]*v2.Grant, 0, len(users))
+	for _, user := range users {
+		u, err := userResource(ctx, &user, nil)
+		if err != nil {
+			return nil, "", nil, err
+		}
+		rv = append(
+			rv,
+			grant.NewGrant(
+				resource,
+				memberEntitlement,
+				u.Id,
+			),
+		)
+	}
+
+	return rv, nextPageToken, nil, nil
 }
 
 func newTeamBuilder(client litmos.Client) *teamBuilder {

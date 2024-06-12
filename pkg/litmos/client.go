@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// TODO: make this configurable. litmos API allows for page sizes up to 1,000
 const pageSize = 100
 
 type Client struct {
@@ -208,6 +209,23 @@ func (c *Client) ListTeams(ctx context.Context, pToken *pagination.Token) ([]Tea
 	return teamsResp.Teams, nextPageToken, nil
 }
 
+func (c *Client) ListTeamUsers(ctx context.Context, pToken *pagination.Token, teamId string) ([]User, string, error) {
+	usersResp := UsersResp{}
+	query := pageTokenToQuery(pToken)
+	path, err := url.JoinPath("/v1.svc/teams", teamId, "users")
+	if err != nil {
+		return nil, pToken.Token, err
+	}
+	_, err = c.Do(ctx, "GET", path, query, &usersResp)
+	if err != nil {
+		return nil, pToken.Token, err
+	}
+
+	spew.Dump(usersResp)
+	nextPageToken := getNextPageToken(pToken, len(usersResp.Users))
+	return usersResp.Users, nextPageToken, nil
+}
+
 func (c *Client) ListCourses(ctx context.Context, pToken *pagination.Token) ([]Course, string, error) {
 	coursesResp := CoursesResp{}
 	query := pageTokenToQuery(pToken)
@@ -224,7 +242,7 @@ func (c *Client) ListCourses(ctx context.Context, pToken *pagination.Token) ([]C
 func (c *Client) ListModules(ctx context.Context, pToken *pagination.Token, courseId string) ([]Module, string, error) {
 	modulesResp := ModulesResp{}
 	query := pageTokenToQuery(pToken)
-	path, err := url.JoinPath("/v1.svc/course/", courseId, "/modules")
+	path, err := url.JoinPath("/v1.svc/course", courseId, "modules")
 	if err != nil {
 		return nil, pToken.Token, err
 	}
