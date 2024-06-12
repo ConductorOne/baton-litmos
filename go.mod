@@ -3,7 +3,8 @@ module github.com/conductorone/baton-litmos
 go 1.22.3
 
 require (
-	github.com/conductorone/baton-sdk v0.1.43
+	github.com/conductorone/baton-sdk v0.1.44
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	go.uber.org/zap v1.27.0
 )
