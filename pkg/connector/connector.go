@@ -19,6 +19,7 @@ type LitmosConnector struct {
 func (d *LitmosConnector) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
 	return []connectorbuilder.ResourceSyncer{
 		newUserBuilder(d.client),
+		newTeamBuilder(d.client),
 	}
 }
 

@@ -57,7 +57,7 @@ func userResource(ctx context.Context, user *litmos.User, parentResourceID *v2.R
 // List returns all the users from the database as resource objects.
 // Users include a UserTrait because they are the 'shape' of a standard user.
 func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
-	users, err := o.client.ListUsers(ctx, pToken)
+	users, nextPageToken, err := o.client.ListUsers(ctx, pToken)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -70,7 +70,7 @@ func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId,
 		}
 		resources = append(resources, resource)
 	}
-	return resources, "", nil, nil
+	return resources, nextPageToken, nil, nil
 }
 
 // Entitlements always returns an empty slice for users.
