@@ -25,8 +25,10 @@ func (o *teamBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 
 func teamResource(ctx context.Context, team *litmos.Team, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
 	profile := map[string]interface{}{
-		"code_for_bulk_import": team.TeamCodeForBulkImport,
-		"parent_team_id":       team.ParentTeamId,
+		"CodeForBulkImport": team.TeamCodeForBulkImport,
+		"Id":                team.Id,
+		"Name":              team.Name,
+		"ParentTeamId":      team.ParentTeamId,
 	}
 
 	groupTraitOptions := []rs.GroupTraitOption{
@@ -82,7 +84,6 @@ func (o *teamBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ *
 }
 
 func (o *teamBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
-
 	users, nextPageToken, err := o.client.ListTeamUsers(ctx, pToken, resource.Id.Resource)
 	if err != nil {
 		return nil, nextPageToken, nil, err

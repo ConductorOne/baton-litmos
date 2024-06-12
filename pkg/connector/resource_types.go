@@ -22,6 +22,7 @@ var teamResourceType = &v2.ResourceType{
 var courseResourceType = &v2.ResourceType{
 	Id:          "course",
 	DisplayName: "Course",
+	Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_GROUP},
 }
 
 var moduleResourceType = &v2.ResourceType{

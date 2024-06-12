@@ -77,71 +77,11 @@ func (c *Client) Do(ctx context.Context, method string, path string, query *url.
 	return resp, err
 }
 
-type Course struct {
-	Id                        string `xml:"Id"`
-	Code                      string `xml:"Code"`
-	Name                      string `xml:"Name"`
-	Active                    bool   `xml:"Active"`
-	ForSale                   bool   `xml:"ForSale"`
-	OriginalId                string `xml:"OriginalId"`
-	Description               string `xml:"Description"`
-	EcommerceShortDescription string `xml:"EcommerceShortDescription"`
-	EcommerceLongDescription  string `xml:"EcommerceLongDescription"`
-	CourseCodeForBulkImport   string `xml:"CourseCodeForBulkImport"`
-	Price                     string `xml:"Price"`
-	AccessTillDate            string `xml:"AccessTillDate"`
-	AccessTillDays            string `xml:"AccessTillDays"`
-	CourseTeamLibrary         bool   `xml:"CourseTeamLibrary"`
-	CreatedBy                 string `xml:"CreatedBy"`
-	SeqId                     string `xml:"SeqId"`
-}
-type CoursesResp struct {
-	Courses []Course `xml:"Course"`
-}
-
-type Module struct {
-	Id          string `xml:"Id"`
-	Code        string `xml:"Code"`
-	Name        string `xml:"Name"`
-	Description string `xml:"Description"`
-}
-type ModulesResp struct {
-	Modules []Module `xml:"Module"`
-}
-
-type Team struct {
-	Id                    string `xml:"Id"`
-	Name                  string `xml:"Name"`
-	TeamCodeForBulkImport string `xml:"TeamCodeForBulkImport"`
-	ParentTeamId          string `xml:"ParentTeamId"`
-}
-
-type TeamsResp struct {
-	XMLName xml.Name `xml:"Teams"`
-	Teams   []Team   `xml:"Team"`
-}
-
-type User struct {
-	Id          string `xml:"Id"`
-	UserName    string `xml:"UserName"`
-	FirstName   string `xml:"FirstName"`
-	LastName    string `xml:"LastName"`
-	Active      bool   `xml:"Active"`
-	Email       string `xml:"Email"`
-	AccessLevel string `xml:"AccessLevel"`
-	Brand       string `xml:"Brand"`
-}
-
 type PaginationInfo struct {
 	BatchParam string `xml:"BatchParam"`
 	BatchSize  int    `xml:"BatchSize"`
 	Start      int    `xml:"Start"`
 	TotalCount int    `xml:"TotalCount"`
-}
-
-type UsersResp struct {
-	XMLName xml.Name `xml:"Users"`
-	Users   []User   `xml:"User"`
 }
 
 func pageTokenToQuery(pToken *pagination.Token) *url.Values {
@@ -183,6 +123,21 @@ func getNextPageToken(pToken *pagination.Token, numItems int) string {
 	return strconv.Itoa(start + numItems)
 }
 
+type User struct {
+	Id          string `xml:"Id"`
+	UserName    string `xml:"UserName"`
+	FirstName   string `xml:"FirstName"`
+	LastName    string `xml:"LastName"`
+	Active      bool   `xml:"Active"`
+	Email       string `xml:"Email"`
+	AccessLevel string `xml:"AccessLevel"`
+	Brand       string `xml:"Brand"`
+}
+type UsersResp struct {
+	XMLName xml.Name `xml:"Users"`
+	Users   []User   `xml:"User"`
+}
+
 func (c *Client) ListUsers(ctx context.Context, pToken *pagination.Token) ([]User, string, error) {
 	usersResp := UsersResp{}
 	query := pageTokenToQuery(pToken)
@@ -194,6 +149,17 @@ func (c *Client) ListUsers(ctx context.Context, pToken *pagination.Token) ([]Use
 	spew.Dump(usersResp)
 	nextPageToken := getNextPageToken(pToken, len(usersResp.Users))
 	return usersResp.Users, nextPageToken, nil
+}
+
+type Team struct {
+	Id                    string `xml:"Id"`
+	Name                  string `xml:"Name"`
+	TeamCodeForBulkImport string `xml:"TeamCodeForBulkImport"`
+	ParentTeamId          string `xml:"ParentTeamId"`
+}
+type TeamsResp struct {
+	XMLName xml.Name `xml:"Teams"`
+	Teams   []Team   `xml:"Team"`
 }
 
 func (c *Client) ListTeams(ctx context.Context, pToken *pagination.Token) ([]Team, string, error) {
@@ -226,6 +192,28 @@ func (c *Client) ListTeamUsers(ctx context.Context, pToken *pagination.Token, te
 	return usersResp.Users, nextPageToken, nil
 }
 
+type Course struct {
+	Id                        string `xml:"Id"`
+	Code                      string `xml:"Code"`
+	Name                      string `xml:"Name"`
+	Active                    bool   `xml:"Active"`
+	ForSale                   bool   `xml:"ForSale"`
+	OriginalId                string `xml:"OriginalId"`
+	Description               string `xml:"Description"`
+	EcommerceShortDescription string `xml:"EcommerceShortDescription"`
+	EcommerceLongDescription  string `xml:"EcommerceLongDescription"`
+	CourseCodeForBulkImport   string `xml:"CourseCodeForBulkImport"`
+	Price                     string `xml:"Price"`
+	AccessTillDate            string `xml:"AccessTillDate"`
+	AccessTillDays            string `xml:"AccessTillDays"`
+	CourseTeamLibrary         bool   `xml:"CourseTeamLibrary"`
+	CreatedBy                 string `xml:"CreatedBy"`
+	SeqId                     string `xml:"SeqId"`
+}
+type CoursesResp struct {
+	Courses []Course `xml:"Course"`
+}
+
 func (c *Client) ListCourses(ctx context.Context, pToken *pagination.Token) ([]Course, string, error) {
 	coursesResp := CoursesResp{}
 	query := pageTokenToQuery(pToken)
@@ -237,6 +225,49 @@ func (c *Client) ListCourses(ctx context.Context, pToken *pagination.Token) ([]C
 	spew.Dump(coursesResp)
 	nextPageToken := getNextPageToken(pToken, len(coursesResp.Courses))
 	return coursesResp.Courses, nextPageToken, nil
+}
+
+type CourseUser struct {
+	Id                 string  `xml:"Id"`
+	UserName           string  `xml:"UserName"`
+	FirstName          string  `xml:"FirstName"`
+	LastName           string  `xml:"LastName"`
+	Completed          bool    `xml:"Completed"`
+	PercentageComplete float64 `xml:"PercentageComplete"`
+	CompliantTill      string  `xml:"CompliantTill"`
+	DueDate            string  `xml:"DueDate"`
+	AccessTillDate     string  `xml:"AccessTillDate"`
+}
+type CourseUsersResp struct {
+	XMLName xml.Name     `xml:"Users"`
+	Users   []CourseUser `xml:"User"`
+}
+
+func (c *Client) ListCourseUsers(ctx context.Context, pToken *pagination.Token, courseId string) ([]CourseUser, string, error) {
+	resp := CourseUsersResp{}
+	query := pageTokenToQuery(pToken)
+	path, err := url.JoinPath("/v1.svc/courses", courseId, "users")
+	if err != nil {
+		return nil, pToken.Token, err
+	}
+	_, err = c.Do(ctx, "GET", path, query, &resp)
+	if err != nil {
+		return nil, pToken.Token, err
+	}
+
+	spew.Dump(resp)
+	nextPageToken := getNextPageToken(pToken, len(resp.Users))
+	return resp.Users, nextPageToken, nil
+}
+
+type Module struct {
+	Id          string `xml:"Id"`
+	Code        string `xml:"Code"`
+	Name        string `xml:"Name"`
+	Description string `xml:"Description"`
+}
+type ModulesResp struct {
+	Modules []Module `xml:"Module"`
 }
 
 func (c *Client) ListModules(ctx context.Context, pToken *pagination.Token, courseId string) ([]Module, string, error) {
