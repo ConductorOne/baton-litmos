@@ -4,10 +4,7 @@
     {
       "resourceType": {
         "id": "course",
-        "displayName": "Course",
-        "traits": [
-          "TRAIT_GROUP"
-        ]
+        "displayName": "Course"
       },
       "capabilities": [
         "CAPABILITY_SYNC"
