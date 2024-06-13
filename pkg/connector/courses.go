@@ -11,6 +11,7 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	"github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const assignedEntitlement = "assigned"
@@ -26,6 +27,11 @@ func (o *courseBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 }
 
 func courseResource(ctx context.Context, course *litmos.Course, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
+	resourceOptions := []rs.ResourceOption{
+		rs.WithParentResourceID(parentResourceID),
+		rs.WithAnnotation(&v2.ChildResourceType{ResourceTypeId: moduleResourceType.Id}),
+	}
+
 	profile := map[string]interface{}{
 		"Id":                        course.Id,
 		"Code":                      course.Code,
@@ -44,17 +50,16 @@ func courseResource(ctx context.Context, course *litmos.Course, parentResourceID
 		"CreatedBy":                 course.CreatedBy,
 		"SeqId":                     course.SeqId,
 	}
-
-	groupTraitOptions := []rs.GroupTraitOption{
-		rs.WithGroupProfile(profile),
+	p, err := structpb.NewStruct(profile)
+	if err == nil {
+		resourceOptions = append(resourceOptions, rs.WithAnnotation(p))
 	}
 
-	resource, err := rs.NewGroupResource(
+	resource, err := rs.NewResource(
 		course.Name,
 		courseResourceType,
 		course.Id,
-		groupTraitOptions,
-		rs.WithParentResourceID(parentResourceID),
+		resourceOptions...,
 	)
 	if err != nil {
 		return nil, err

@@ -21,7 +21,7 @@ func (o *moduleBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 func moduleResource(ctx context.Context, module *litmos.Module, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
 	resource, err := rs.NewResource(
 		module.Name,
-		userResourceType,
+		moduleResourceType,
 		module.Id,
 		rs.WithParentResourceID(parentResourceID),
 	)

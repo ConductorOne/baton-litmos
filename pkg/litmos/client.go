@@ -267,7 +267,7 @@ type ModulesResp struct {
 func (c *Client) ListModules(ctx context.Context, pToken *pagination.Token, courseId string) ([]Module, string, error) {
 	modulesResp := ModulesResp{}
 	query := pageTokenToQuery(pToken)
-	path, err := url.JoinPath("/v1.svc/course", courseId, "modules")
+	path, err := url.JoinPath("/v1.svc/courses", courseId, "modules")
 	if err != nil {
 		return nil, pToken.Token, err
 	}
