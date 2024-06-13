@@ -10,7 +10,6 @@ import (
 
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -146,7 +145,6 @@ func (c *Client) ListUsers(ctx context.Context, pToken *pagination.Token) ([]Use
 		return nil, pToken.Token, err
 	}
 
-	spew.Dump(usersResp)
 	nextPageToken := getNextPageToken(pToken, len(usersResp.Users))
 	return usersResp.Users, nextPageToken, nil
 }
@@ -170,7 +168,6 @@ func (c *Client) ListTeams(ctx context.Context, pToken *pagination.Token) ([]Tea
 		return nil, pToken.Token, err
 	}
 
-	spew.Dump(teamsResp)
 	nextPageToken := getNextPageToken(pToken, len(teamsResp.Teams))
 	return teamsResp.Teams, nextPageToken, nil
 }
@@ -187,7 +184,6 @@ func (c *Client) ListTeamUsers(ctx context.Context, pToken *pagination.Token, te
 		return nil, pToken.Token, err
 	}
 
-	spew.Dump(usersResp)
 	nextPageToken := getNextPageToken(pToken, len(usersResp.Users))
 	return usersResp.Users, nextPageToken, nil
 }
@@ -222,7 +218,6 @@ func (c *Client) ListCourses(ctx context.Context, pToken *pagination.Token) ([]C
 		return nil, pToken.Token, err
 	}
 
-	spew.Dump(coursesResp)
 	nextPageToken := getNextPageToken(pToken, len(coursesResp.Courses))
 	return coursesResp.Courses, nextPageToken, nil
 }
@@ -255,7 +250,6 @@ func (c *Client) ListCourseUsers(ctx context.Context, pToken *pagination.Token, 
 		return nil, pToken.Token, err
 	}
 
-	spew.Dump(resp)
 	nextPageToken := getNextPageToken(pToken, len(resp.Users))
 	return resp.Users, nextPageToken, nil
 }
@@ -282,7 +276,6 @@ func (c *Client) ListModules(ctx context.Context, pToken *pagination.Token, cour
 		return nil, pToken.Token, err
 	}
 
-	spew.Dump(modulesResp)
 	nextPageToken := getNextPageToken(pToken, len(modulesResp.Modules))
 	return modulesResp.Modules, nextPageToken, nil
 }
