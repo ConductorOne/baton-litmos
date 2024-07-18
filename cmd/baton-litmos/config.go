@@ -1,19 +1,22 @@
 package main
 
 import (
-	"context"
-
-	"github.com/conductorone/baton-sdk/pkg/cli"
+	"github.com/conductorone/baton-sdk/pkg/field"
 )
 
-// config defines the external configuration required for the connector to run.
-type config struct {
-	cli.BaseConfig `mapstructure:",squash"` // Puts the base config options in the same place as the connector options
-	ApiKey         string                   `mapstructure:"api-key" description:"API Key" required:"true"`
-	Source         string                   `mapstructure:"source" description:"Source" required:"true"`
+var (
+	apiKeyField = field.StringField("api-key", field.WithDescription(`API Key`), field.WithRequired(true))
+	sourceField = field.StringField("source", field.WithDescription(`Source`), field.WithRequired(true))
+)
+
+var configFields = []field.SchemaField{
+	apiKeyField,
+	sourceField,
 }
 
-// validateConfig is run after the configuration is loaded, and should return an error if it isn't valid.
-func validateConfig(ctx context.Context, cfg *config) error {
-	return nil
+var configRelations = []field.SchemaFieldRelationship{}
+
+var cfg = field.Configuration{
+	Fields:      configFields,
+	Constraints: configRelations,
 }
