@@ -37,8 +37,8 @@ var (
 )
 
 type Syncer interface {
-	Sync(ctx context.Context) error
-	Close(ctx context.Context) error
+	Sync(context.Context) error
+	Close(context.Context) error
 }
 
 // syncer orchestrates a connector sync and stores the results using the provided datasource.Writer.
@@ -52,6 +52,7 @@ type syncer struct {
 	transitionHandler func(s Action)
 	progressHandler   func(p *Progress)
 	tmpDir            string
+	skipFullSync      bool
 
 	skipEGForResourceType map[string]bool
 }
@@ -78,7 +79,9 @@ func (s *syncer) handleInitialActionForStep(ctx context.Context, a Action) {
 
 func (s *syncer) handleProgress(ctx context.Context, a *Action, c int) {
 	if s.progressHandler != nil {
-		s.progressHandler(NewProgress(a, uint32(c)))
+		//nolint:gosec // No risk of overflow because `c` is a slice length.
+		count := uint32(c)
+		s.progressHandler(NewProgress(a, count))
 	}
 }
 
@@ -115,6 +118,10 @@ func shouldWaitAndRetry(ctx context.Context, err error) bool {
 // an action is completed, it is popped off of the queue. Before processing each action, we checkpoint the state object
 // into the datasource. This allows for graceful resumes if a sync is interrupted.
 func (s *syncer) Sync(ctx context.Context) error {
+	if s.skipFullSync {
+		return s.SkipSync(ctx)
+	}
+
 	l := ctxzap.Extract(ctx)
 
 	runCtx := ctx
@@ -256,6 +263,46 @@ func (s *syncer) Sync(ctx context.Context) error {
 	}
 
 	l.Info("Sync complete.")
+
+	err = s.store.Cleanup(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *syncer) SkipSync(ctx context.Context) error {
+	l := ctxzap.Extract(ctx)
+	l.Info("skipping sync")
+
+	var runCanc context.CancelFunc
+	if s.runDuration > 0 {
+		_, runCanc = context.WithTimeout(ctx, s.runDuration)
+	}
+	if runCanc != nil {
+		defer runCanc()
+	}
+
+	err := s.loadStore(ctx)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.connector.Validate(ctx, &v2.ConnectorServiceValidateRequest{})
+	if err != nil {
+		return err
+	}
+
+	_, err = s.store.StartNewSync(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = s.store.EndSync(ctx)
+	if err != nil {
+		return err
+	}
 
 	err = s.store.Cleanup(ctx)
 	if err != nil {
@@ -1388,9 +1435,12 @@ func (s *syncer) loadStore(ctx context.Context) error {
 
 // Close closes the datastorage to ensure it is updated on disk.
 func (s *syncer) Close(ctx context.Context) error {
-	err := s.store.Close()
-	if err != nil {
-		return fmt.Errorf("error closing store: %w", err)
+	var err error
+	if s.store != nil {
+		err = s.store.Close()
+		if err != nil {
+			return fmt.Errorf("error closing store: %w", err)
+		}
 	}
 
 	if s.c1zManager != nil {
@@ -1453,6 +1503,12 @@ func WithC1ZPath(path string) SyncOpt {
 func WithTmpDir(path string) SyncOpt {
 	return func(s *syncer) {
 		s.tmpDir = path
+	}
+}
+
+func WithSkipFullSync() SyncOpt {
+	return func(s *syncer) {
+		s.skipFullSync = true
 	}
 }
 
