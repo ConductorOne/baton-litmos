@@ -13,19 +13,22 @@ import (
 )
 
 type LitmosConnector struct {
-	client       litmos.Client
-	limitCourses mapset.Set[string]
+	client        litmos.Client
+	limitCourses  mapset.Set[string]
+	enableModules bool
 }
 
 // ResourceSyncers returns a ResourceSyncer for each resource type that should be synced from the upstream service.
 func (d *LitmosConnector) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
-	return []connectorbuilder.ResourceSyncer{
+	rv := []connectorbuilder.ResourceSyncer{
 		newUserBuilder(d.client),
 		newTeamBuilder(d.client),
-		newCourseBuilder(d.client, d.limitCourses),
-		// disabled since modules don't have any grants at this time
-		//		newModuleBuilder(d.client),
+		newCourseBuilder(d.client, d.limitCourses, d.enableModules),
 	}
+	if d.enableModules {
+		rv = append(rv, newModuleBuilder(d.client))
+	}
+	return rv
 }
 
 // Asset takes an input AssetRef and attempts to fetch it using the connector's authenticated http client

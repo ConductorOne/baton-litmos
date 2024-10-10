@@ -20,18 +20,23 @@ const completedEntitlement = "completed"
 const inProgressEntitlement = "in_progress"
 
 type courseBuilder struct {
-	client       litmos.Client
-	limitCourses mapset.Set[string]
+	client        litmos.Client
+	limitCourses  mapset.Set[string]
+	enableModules bool
 }
 
 func (o *courseBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 	return courseResourceType
 }
 
-func courseResource(ctx context.Context, course *litmos.Course, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
+func courseResource(ctx context.Context, course *litmos.Course, parentResourceID *v2.ResourceId, enableModules bool) (*v2.Resource, error) {
 	resourceOptions := []rs.ResourceOption{
 		rs.WithParentResourceID(parentResourceID),
-		// rs.WithAnnotation(&v2.ChildResourceType{ResourceTypeId: moduleResourceType.Id}),
+	}
+	if enableModules {
+		resourceOptions = append(resourceOptions,
+			rs.WithAnnotation(&v2.ChildResourceType{ResourceTypeId: moduleResourceType.Id}),
+		)
 	}
 
 	profile := map[string]interface{}{
@@ -84,7 +89,7 @@ func (o *courseBuilder) List(ctx context.Context, parentResourceID *v2.ResourceI
 			}
 		}
 
-		resource, err := courseResource(ctx, &course, parentResourceID)
+		resource, err := courseResource(ctx, &course, parentResourceID, o.enableModules)
 		if err != nil {
 			return nil, "", nil, err
 		}
@@ -172,9 +177,10 @@ func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, pToke
 	return rv, nextPageToken, nil, nil
 }
 
-func newCourseBuilder(client litmos.Client, limitCourses mapset.Set[string]) *courseBuilder {
+func newCourseBuilder(client litmos.Client, limitCourses mapset.Set[string], enableModules bool) *courseBuilder {
 	return &courseBuilder{
-		client:       client,
-		limitCourses: limitCourses,
+		client:        client,
+		limitCourses:  limitCourses,
+		enableModules: enableModules,
 	}
 }
