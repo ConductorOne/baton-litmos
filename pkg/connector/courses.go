@@ -11,6 +11,7 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	"github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
+	mapset "github.com/deckarep/golang-set/v2"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -19,17 +20,23 @@ const completedEntitlement = "completed"
 const inProgressEntitlement = "in_progress"
 
 type courseBuilder struct {
-	client litmos.Client
+	client        litmos.Client
+	limitCourses  mapset.Set[string]
+	enableModules bool
 }
 
 func (o *courseBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 	return courseResourceType
 }
 
-func courseResource(ctx context.Context, course *litmos.Course, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
+func courseResource(ctx context.Context, course *litmos.Course, parentResourceID *v2.ResourceId, enableModules bool) (*v2.Resource, error) {
 	resourceOptions := []rs.ResourceOption{
 		rs.WithParentResourceID(parentResourceID),
-		rs.WithAnnotation(&v2.ChildResourceType{ResourceTypeId: moduleResourceType.Id}),
+	}
+	if enableModules {
+		resourceOptions = append(resourceOptions,
+			rs.WithAnnotation(&v2.ChildResourceType{ResourceTypeId: moduleResourceType.Id}),
+		)
 	}
 
 	profile := map[string]interface{}{
@@ -76,7 +83,13 @@ func (o *courseBuilder) List(ctx context.Context, parentResourceID *v2.ResourceI
 
 	resources := make([]*v2.Resource, 0, len(courses))
 	for _, course := range courses {
-		resource, err := courseResource(ctx, &course, parentResourceID)
+		if o.limitCourses != nil {
+			if !o.limitCourses.Contains(course.Id) {
+				continue
+			}
+		}
+
+		resource, err := courseResource(ctx, &course, parentResourceID, o.enableModules)
 		if err != nil {
 			return nil, "", nil, err
 		}
@@ -127,6 +140,12 @@ func (o *courseBuilder) Entitlements(_ context.Context, resource *v2.Resource, _
 
 // Grants always returns an empty slice for users since they don't have any entitlements.
 func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
+	if o.limitCourses != nil {
+		if !o.limitCourses.Contains(resource.Id.Resource) {
+			return nil, "", nil, nil
+		}
+	}
+
 	users, nextPageToken, err := o.client.ListCourseUsers(ctx, pToken, resource.Id.Resource)
 	if err != nil {
 		return nil, nextPageToken, nil, err
@@ -164,8 +183,10 @@ func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, pToke
 	return rv, nextPageToken, nil, nil
 }
 
-func newCourseBuilder(client litmos.Client) *courseBuilder {
+func newCourseBuilder(client litmos.Client, limitCourses mapset.Set[string], enableModules bool) *courseBuilder {
 	return &courseBuilder{
-		client: client,
+		client:        client,
+		limitCourses:  limitCourses,
+		enableModules: enableModules,
 	}
 }

@@ -17,7 +17,7 @@ import (
 )
 
 // TODO: make this configurable. litmos API allows for page sizes up to 1,000
-const pageSize = 100
+const pageSize = 500
 
 type Client struct {
 	wrapper *uhttp.BaseHttpClient
