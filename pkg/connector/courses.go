@@ -140,6 +140,12 @@ func (o *courseBuilder) Entitlements(_ context.Context, resource *v2.Resource, _
 
 // Grants always returns an empty slice for users since they don't have any entitlements.
 func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
+	if o.limitCourses != nil {
+		if !o.limitCourses.Contains(resource.Id.Resource) {
+			return nil, "", nil, nil
+		}
+	}
+
 	users, nextPageToken, err := o.client.ListCourseUsers(ctx, pToken, resource.Id.Resource)
 	if err != nil {
 		return nil, nextPageToken, nil, err
