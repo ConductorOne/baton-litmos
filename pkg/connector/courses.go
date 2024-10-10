@@ -31,7 +31,7 @@ func (o *courseBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 func courseResource(ctx context.Context, course *litmos.Course, parentResourceID *v2.ResourceId) (*v2.Resource, error) {
 	resourceOptions := []rs.ResourceOption{
 		rs.WithParentResourceID(parentResourceID),
-		rs.WithAnnotation(&v2.ChildResourceType{ResourceTypeId: moduleResourceType.Id}),
+		// rs.WithAnnotation(&v2.ChildResourceType{ResourceTypeId: moduleResourceType.Id}),
 	}
 
 	profile := map[string]interface{}{
@@ -83,6 +83,7 @@ func (o *courseBuilder) List(ctx context.Context, parentResourceID *v2.ResourceI
 				continue
 			}
 		}
+
 		resource, err := courseResource(ctx, &course, parentResourceID)
 		if err != nil {
 			return nil, "", nil, err

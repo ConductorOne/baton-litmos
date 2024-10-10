@@ -23,7 +23,8 @@ func (d *LitmosConnector) ResourceSyncers(ctx context.Context) []connectorbuilde
 		newUserBuilder(d.client),
 		newTeamBuilder(d.client),
 		newCourseBuilder(d.client, d.limitCourses),
-		newModuleBuilder(d.client),
+		// disabled since modules don't have any grants at this time
+		//		newModuleBuilder(d.client),
 	}
 }
 
