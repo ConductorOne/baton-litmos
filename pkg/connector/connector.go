@@ -9,10 +9,12 @@ import (
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
+	mapset "github.com/deckarep/golang-set/v2"
 )
 
 type LitmosConnector struct {
-	client litmos.Client
+	client       litmos.Client
+	limitCourses mapset.Set[string]
 }
 
 // ResourceSyncers returns a ResourceSyncer for each resource type that should be synced from the upstream service.
@@ -20,7 +22,7 @@ func (d *LitmosConnector) ResourceSyncers(ctx context.Context) []connectorbuilde
 	return []connectorbuilder.ResourceSyncer{
 		newUserBuilder(d.client),
 		newTeamBuilder(d.client),
-		newCourseBuilder(d.client),
+		newCourseBuilder(d.client, d.limitCourses),
 		newModuleBuilder(d.client),
 	}
 }
@@ -46,12 +48,16 @@ func (d *LitmosConnector) Validate(ctx context.Context) (annotations.Annotations
 }
 
 // New returns a new instance of the connector.
-func New(ctx context.Context, apiKey, source string) (*LitmosConnector, error) {
+func New(ctx context.Context, apiKey, source string, limitCourses []string) (*LitmosConnector, error) {
 	cli, err := litmos.NewClient(ctx, apiKey, source)
 	if err != nil {
 		return nil, err
 	}
-	return &LitmosConnector{
+	lc := &LitmosConnector{
 		client: *cli,
-	}, nil
+	}
+	if len(limitCourses) > 0 {
+		lc.limitCourses = mapset.NewSet(limitCourses...)
+	}
+	return lc, nil
 }

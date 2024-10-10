@@ -11,6 +11,7 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	"github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
+	mapset "github.com/deckarep/golang-set/v2"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -19,7 +20,8 @@ const completedEntitlement = "completed"
 const inProgressEntitlement = "in_progress"
 
 type courseBuilder struct {
-	client litmos.Client
+	client       litmos.Client
+	limitCourses mapset.Set[string]
 }
 
 func (o *courseBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
@@ -76,6 +78,11 @@ func (o *courseBuilder) List(ctx context.Context, parentResourceID *v2.ResourceI
 
 	resources := make([]*v2.Resource, 0, len(courses))
 	for _, course := range courses {
+		if o.limitCourses != nil {
+			if !o.limitCourses.Contains(course.Id) {
+				continue
+			}
+		}
 		resource, err := courseResource(ctx, &course, parentResourceID)
 		if err != nil {
 			return nil, "", nil, err
@@ -164,8 +171,9 @@ func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, pToke
 	return rv, nextPageToken, nil, nil
 }
 
-func newCourseBuilder(client litmos.Client) *courseBuilder {
+func newCourseBuilder(client litmos.Client, limitCourses mapset.Set[string]) *courseBuilder {
 	return &courseBuilder{
-		client: client,
+		client:       client,
+		limitCourses: limitCourses,
 	}
 }
