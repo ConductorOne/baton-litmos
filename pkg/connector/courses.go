@@ -76,6 +76,22 @@ func courseResource(ctx context.Context, course *litmos.Course, parentResourceID
 }
 
 func (o *courseBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
+	if o.limitCourses != nil {
+		resources := make([]*v2.Resource, 0, len(o.limitCourses.ToSlice()))
+		for _, courseId := range o.limitCourses.ToSlice() {
+			course, err := o.client.GetCourse(ctx, courseId)
+			if err != nil {
+				return nil, "", nil, err
+			}
+			resource, err := courseResource(ctx, course, parentResourceID, o.enableModules)
+			if err != nil {
+				return nil, "", nil, err
+			}
+			resources = append(resources, resource)
+		}
+		return resources, "", nil, nil
+	}
+
 	courses, nextPageToken, err := o.client.ListCourses(ctx, pToken)
 	if err != nil {
 		return nil, nextPageToken, nil, err
@@ -83,12 +99,6 @@ func (o *courseBuilder) List(ctx context.Context, parentResourceID *v2.ResourceI
 
 	resources := make([]*v2.Resource, 0, len(courses))
 	for _, course := range courses {
-		if o.limitCourses != nil {
-			if !o.limitCourses.Contains(course.Id) {
-				continue
-			}
-		}
-
 		resource, err := courseResource(ctx, &course, parentResourceID, o.enableModules)
 		if err != nil {
 			return nil, "", nil, err
