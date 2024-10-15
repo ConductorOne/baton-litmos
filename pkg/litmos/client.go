@@ -226,6 +226,16 @@ func (c *Client) ListCourses(ctx context.Context, pToken *pagination.Token) ([]C
 	return coursesResp.Courses, nextPageToken, nil
 }
 
+func (c *Client) GetCourse(ctx context.Context, courseId string) (*Course, error) {
+	courseResp := Course{}
+	_, err := c.Do(ctx, "GET", "/v1.svc/courses/"+courseId, nil, &courseResp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &courseResp, nil
+}
+
 type CourseUser struct {
 	Id                 string  `xml:"Id"`
 	UserName           string  `xml:"UserName"`
