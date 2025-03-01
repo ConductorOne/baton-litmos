@@ -1,6 +1,6 @@
 module github.com/conductorone/baton-litmos
 
-go 1.22.3
+go 1.23
 
 require (
 	github.com/conductorone/baton-sdk v0.2.42
