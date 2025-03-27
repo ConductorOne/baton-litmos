@@ -1,9 +1,11 @@
 package litmos
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -48,7 +50,7 @@ func NewClient(ctx context.Context, apiKey, source string) (*Client, error) {
 func (c *Client) Do(ctx context.Context, method string, path string, query *url.Values, response interface{}, options ...uhttp.RequestOption) (*http.Response, error) {
 	l := ctxzap.Extract(ctx)
 	options = append(options,
-		uhttp.WithHeader("apikey", c.apiKey),
+		uhttp.WithHeader("apikey", c.apiKey), uhttp.WithAcceptXMLHeader(),
 	)
 
 	rawQuery := ""
@@ -70,7 +72,7 @@ func (c *Client) Do(ctx context.Context, method string, path string, query *url.
 		return nil, err
 	}
 	l.Debug("sending request", zap.String("url", url.String()), zap.String("method", method))
-	resp, err := c.wrapper.Do(req, uhttp.WithResponse(response))
+	resp, err := c.wrapper.Do(req, withXMLOrEmptyResponse(response))
 	if err != nil && resp != nil {
 		// Retry 503s & 504s because the Litmos API is flaky
 		if resp.StatusCode == http.StatusGatewayTimeout || resp.StatusCode == http.StatusServiceUnavailable {
@@ -228,7 +230,7 @@ func (c *Client) ListCourses(ctx context.Context, pToken *pagination.Token) ([]C
 
 func (c *Client) GetCourse(ctx context.Context, courseId string) (*Course, error) {
 	courseResp := Course{}
-	_, err := c.Do(ctx, "GET", "/v1.svc/courses/"+courseId, nil, &courseResp)
+	_, err := c.Do(ctx, "GET", "/v1.svc/courses/"+courseId, nil, &courseResp, uhttp.WithAcceptXMLHeader())
 	if err != nil {
 		return nil, err
 	}
@@ -299,13 +301,20 @@ func (c *Client) AssignCourseToUser(ctx context.Context, userId string, courseId
 	if err != nil {
 		return err
 	}
-
-	body := []struct {
-		CourseId string `json:"Id"`
+	body := struct {
+		XMLName xml.Name `xml:"Courses"`
+		Course  []struct {
+			Id string `xml:"Id"`
+		} `xml:"Course"`
 	}{
-		{CourseId: courseId},
+		Course: []struct {
+			Id string `xml:"Id"`
+		}{
+			{Id: courseId},
+		},
 	}
-	_, err = c.Do(ctx, "POST", path, nil, nil, uhttp.WithJSONBody(body))
+
+	_, err = c.Do(ctx, "POST", path, nil, nil, withXMLBody(body))
 	if err != nil {
 		return err
 	}
@@ -319,10 +328,43 @@ func (c *Client) RemoveCourseFromUser(ctx context.Context, userId string, course
 		return err
 	}
 
-	_, err = c.Do(ctx, "DELETE", path, nil, nil)
+	_, err = c.Do(ctx, "DELETE", path, nil, nil, uhttp.WithAcceptXMLHeader())
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// TODO: Pull up into sdk
+func withXMLBody(body interface{}) uhttp.RequestOption {
+	return func() (io.ReadWriter, map[string]string, error) {
+		var buffer bytes.Buffer
+
+		err := xml.NewEncoder(&buffer).Encode(body)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		_, headers, err := uhttp.WithContentType("application/xml")()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return &buffer, headers, nil
+	}
+}
+
+func withXMLOrEmptyResponse(response interface{}) uhttp.DoOption {
+	return func(resp *uhttp.WrapperResponse) error {
+		// Handle successful POST requests that don't return a body
+		if resp.Header.Get(uhttp.ContentType) == "" && len(resp.Body) == 0 {
+			return nil
+		}
+		if uhttp.IsXMLContentType(resp.Header.Get(uhttp.ContentType)) {
+			return uhttp.WithXMLResponse(response)(resp)
+		}
+
+		return status.Error(codes.Unknown, "unsupported content type")
+	}
 }
