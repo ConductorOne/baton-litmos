@@ -1,3 +1,4 @@
+//nolint:bodyclose // Response bodies are closed by the uhttp wrapper
 package litmos
 
 import (
