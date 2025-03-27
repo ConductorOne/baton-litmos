@@ -48,7 +48,7 @@ func NewClient(ctx context.Context, apiKey, source string) (*Client, error) {
 func (c *Client) Do(ctx context.Context, method string, path string, query *url.Values, response interface{}, options ...uhttp.RequestOption) (*http.Response, error) {
 	l := ctxzap.Extract(ctx)
 	options = append(options,
-		uhttp.WithHeader("apikey", c.apiKey), uhttp.WithAcceptXMLHeader(),
+		uhttp.WithHeader("apikey", c.apiKey),
 	)
 
 	rawQuery := ""
@@ -70,7 +70,7 @@ func (c *Client) Do(ctx context.Context, method string, path string, query *url.
 		return nil, err
 	}
 	l.Debug("sending request", zap.String("url", url.String()), zap.String("method", method))
-	resp, err := c.wrapper.Do(req, uhttp.WithXMLResponse(response))
+	resp, err := c.wrapper.Do(req, uhttp.WithResponse(response))
 	if err != nil && resp != nil {
 		// Retry 503s & 504s because the Litmos API is flaky
 		if resp.StatusCode == http.StatusGatewayTimeout || resp.StatusCode == http.StatusServiceUnavailable {
@@ -144,7 +144,7 @@ type UsersResp struct {
 func (c *Client) ListUsers(ctx context.Context, pToken *pagination.Token) ([]User, string, error) {
 	usersResp := UsersResp{}
 	query := pageTokenToQuery(pToken)
-	_, err := c.Do(ctx, "GET", "/v1.svc/users", query, &usersResp)
+	_, err := c.Do(ctx, "GET", "/v1.svc/users", query, &usersResp, uhttp.WithAcceptXMLHeader())
 	if err != nil {
 		return nil, pToken.Token, err
 	}
@@ -167,7 +167,7 @@ type TeamsResp struct {
 func (c *Client) ListTeams(ctx context.Context, pToken *pagination.Token) ([]Team, string, error) {
 	teamsResp := TeamsResp{}
 	query := pageTokenToQuery(pToken)
-	_, err := c.Do(ctx, "GET", "/v1.svc/teams", query, &teamsResp)
+	_, err := c.Do(ctx, "GET", "/v1.svc/teams", query, &teamsResp, uhttp.WithAcceptXMLHeader())
 	if err != nil {
 		return nil, pToken.Token, err
 	}
@@ -183,7 +183,7 @@ func (c *Client) ListTeamUsers(ctx context.Context, pToken *pagination.Token, te
 	if err != nil {
 		return nil, pToken.Token, err
 	}
-	_, err = c.Do(ctx, "GET", path, query, &usersResp)
+	_, err = c.Do(ctx, "GET", path, query, &usersResp, uhttp.WithAcceptXMLHeader())
 	if err != nil {
 		return nil, pToken.Token, err
 	}
@@ -217,7 +217,7 @@ type CoursesResp struct {
 func (c *Client) ListCourses(ctx context.Context, pToken *pagination.Token) ([]Course, string, error) {
 	coursesResp := CoursesResp{}
 	query := pageTokenToQuery(pToken)
-	_, err := c.Do(ctx, "GET", "/v1.svc/courses", query, &coursesResp)
+	_, err := c.Do(ctx, "GET", "/v1.svc/courses", query, &coursesResp, uhttp.WithAcceptXMLHeader())
 	if err != nil {
 		return nil, pToken.Token, err
 	}
@@ -259,7 +259,7 @@ func (c *Client) ListCourseUsers(ctx context.Context, pToken *pagination.Token, 
 	if err != nil {
 		return nil, pToken.Token, err
 	}
-	_, err = c.Do(ctx, "GET", path, query, &resp)
+	_, err = c.Do(ctx, "GET", path, query, &resp, uhttp.WithAcceptXMLHeader())
 	if err != nil {
 		return nil, pToken.Token, err
 	}
@@ -285,11 +285,44 @@ func (c *Client) ListModules(ctx context.Context, pToken *pagination.Token, cour
 	if err != nil {
 		return nil, pToken.Token, err
 	}
-	_, err = c.Do(ctx, "GET", path, query, &modulesResp)
+	_, err = c.Do(ctx, "GET", path, query, &modulesResp, uhttp.WithAcceptXMLHeader())
 	if err != nil {
 		return nil, pToken.Token, err
 	}
 
 	nextPageToken := getNextPageToken(pToken, len(modulesResp.Modules))
 	return modulesResp.Modules, nextPageToken, nil
+}
+
+func (c *Client) AssignCourseToUser(ctx context.Context, userId string, courseId string) error {
+	path, err := url.JoinPath("/v1.svc/users", userId, "courses")
+	if err != nil {
+		return err
+	}
+
+	body := []struct {
+		CourseId string `json:"Id"`
+	}{
+		{CourseId: courseId},
+	}
+	_, err = c.Do(ctx, "POST", path, nil, nil, uhttp.WithJSONBody(body))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Client) RemoveCourseFromUser(ctx context.Context, userId string, courseId string) error {
+	path, err := url.JoinPath("/v1.svc/users", userId, "courses", courseId)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Do(ctx, "DELETE", path, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
