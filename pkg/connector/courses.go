@@ -14,6 +14,8 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -204,7 +206,8 @@ func (o *courseBuilder) Grant(ctx context.Context, principal *v2.Resource, entit
 			zap.String("principal_type", principal.Id.ResourceType),
 			zap.String("principal_id", principal.Id.Resource),
 		)
-		return nil, nil, fmt.Errorf("litmos-connector: only users can be granted course entitlement")
+		return nil, nil, status.Error(codes.InvalidArgument, "litmos-connector: only users can be granted course entitlement")
+
 	}
 
 	courseId := entitlement.Resource.Id.Resource
@@ -239,7 +242,7 @@ func (o *courseBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotation
 			zap.String("principal_type", principal.Id.ResourceType),
 			zap.String("principal_id", principal.Id.Resource),
 		)
-		return nil, fmt.Errorf("litmos-connector: only users can be revoked from course entitlement")
+		return nil, status.Error(codes.InvalidArgument, "litmos-connector: only users can be revoked from course entitlement")
 	}
 
 	courseId := entitlement.Resource.Id.Resource
