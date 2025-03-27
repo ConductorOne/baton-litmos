@@ -195,7 +195,7 @@ func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, pToke
 	return rv, nextPageToken, nil, nil
 }
 
-func (o *courseBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) (annotations.Annotations, error) {
+func (o *courseBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) ([]*v2.Grant, annotations.Annotations, error) {
 	l := ctxzap.Extract(ctx)
 
 	if principal.Id.ResourceType != userResourceType.Id {
@@ -204,17 +204,37 @@ func (o *courseBuilder) Grant(ctx context.Context, principal *v2.Resource, entit
 			zap.String("principal_type", principal.Id.ResourceType),
 			zap.String("principal_id", principal.Id.Resource),
 		)
-		return nil, fmt.Errorf("litmos-connector: only users can be granted course entitlement")
+		return nil, nil, fmt.Errorf("litmos-connector: only users can be granted course entitlement")
 	}
 
 	courseId := entitlement.Resource.Id.Resource
+	userId := principal.Id.Resource
 
-	err := o.client.AssignCourseToUser(ctx, principal.Id.Resource, courseId)
+	err := o.client.AssignCourseToUser(ctx, userId, courseId)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return nil, nil
+	rID := &v2.ResourceId{
+		ResourceType: userResourceType.Id,
+		Resource:     userId,
+	}
+
+	var grants []*v2.Grant
+	grants = append(grants, grant.NewGrant(
+		entitlement.Resource,
+		assignedEntitlement,
+		rID,
+	))
+	if entitlement.Slug != assignedEntitlement {
+		grants = append(grants, grant.NewGrant(
+			entitlement.Resource,
+			entitlement.Slug,
+			rID,
+		))
+	}
+
+	return grants, nil, nil
 }
 
 func (o *courseBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
