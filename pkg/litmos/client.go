@@ -146,7 +146,7 @@ type UsersResp struct {
 func (c *Client) ListUsers(ctx context.Context, pToken *pagination.Token) ([]User, string, error) {
 	usersResp := UsersResp{}
 	query := pageTokenToQuery(pToken)
-	_, err := c.Do(ctx, "GET", "/v1.svc/users", query, &usersResp, uhttp.WithAcceptXMLHeader())
+	_, err := c.Do(ctx, "GET", "/v1.svc/users", query, &usersResp)
 	if err != nil {
 		return nil, pToken.Token, err
 	}
@@ -169,7 +169,7 @@ type TeamsResp struct {
 func (c *Client) ListTeams(ctx context.Context, pToken *pagination.Token) ([]Team, string, error) {
 	teamsResp := TeamsResp{}
 	query := pageTokenToQuery(pToken)
-	_, err := c.Do(ctx, "GET", "/v1.svc/teams", query, &teamsResp, uhttp.WithAcceptXMLHeader())
+	_, err := c.Do(ctx, "GET", "/v1.svc/teams", query, &teamsResp)
 	if err != nil {
 		return nil, pToken.Token, err
 	}
@@ -185,7 +185,7 @@ func (c *Client) ListTeamUsers(ctx context.Context, pToken *pagination.Token, te
 	if err != nil {
 		return nil, pToken.Token, err
 	}
-	_, err = c.Do(ctx, "GET", path, query, &usersResp, uhttp.WithAcceptXMLHeader())
+	_, err = c.Do(ctx, "GET", path, query, &usersResp)
 	if err != nil {
 		return nil, pToken.Token, err
 	}
@@ -219,7 +219,7 @@ type CoursesResp struct {
 func (c *Client) ListCourses(ctx context.Context, pToken *pagination.Token) ([]Course, string, error) {
 	coursesResp := CoursesResp{}
 	query := pageTokenToQuery(pToken)
-	_, err := c.Do(ctx, "GET", "/v1.svc/courses", query, &coursesResp, uhttp.WithAcceptXMLHeader())
+	_, err := c.Do(ctx, "GET", "/v1.svc/courses", query, &coursesResp)
 	if err != nil {
 		return nil, pToken.Token, err
 	}
@@ -230,7 +230,7 @@ func (c *Client) ListCourses(ctx context.Context, pToken *pagination.Token) ([]C
 
 func (c *Client) GetCourse(ctx context.Context, courseId string) (*Course, error) {
 	courseResp := Course{}
-	_, err := c.Do(ctx, "GET", "/v1.svc/courses/"+courseId, nil, &courseResp, uhttp.WithAcceptXMLHeader())
+	_, err := c.Do(ctx, "GET", "/v1.svc/courses/"+courseId, nil, &courseResp)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (c *Client) ListCourseUsers(ctx context.Context, pToken *pagination.Token, 
 	if err != nil {
 		return nil, pToken.Token, err
 	}
-	_, err = c.Do(ctx, "GET", path, query, &resp, uhttp.WithAcceptXMLHeader())
+	_, err = c.Do(ctx, "GET", path, query, &resp)
 	if err != nil {
 		return nil, pToken.Token, err
 	}
@@ -287,7 +287,7 @@ func (c *Client) ListModules(ctx context.Context, pToken *pagination.Token, cour
 	if err != nil {
 		return nil, pToken.Token, err
 	}
-	_, err = c.Do(ctx, "GET", path, query, &modulesResp, uhttp.WithAcceptXMLHeader())
+	_, err = c.Do(ctx, "GET", path, query, &modulesResp)
 	if err != nil {
 		return nil, pToken.Token, err
 	}
@@ -328,7 +328,7 @@ func (c *Client) RemoveCourseFromUser(ctx context.Context, userId string, course
 		return err
 	}
 
-	_, err = c.Do(ctx, "DELETE", path, nil, nil, uhttp.WithAcceptXMLHeader())
+	_, err = c.Do(ctx, "DELETE", path, nil, nil)
 	if err != nil {
 		return err
 	}
