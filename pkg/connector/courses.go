@@ -215,26 +215,16 @@ func (o *courseBuilder) Grant(ctx context.Context, principal *v2.Resource, entit
 		return nil, nil, err
 	}
 
-	rID := &v2.ResourceId{
-		ResourceType: userResourceType.Id,
-		Resource:     userId,
-	}
-
-	var grants []*v2.Grant
-	grants = append(grants, grant.NewGrant(
+	grant := grant.NewGrant(
 		entitlement.Resource,
 		assignedEntitlement,
-		rID,
-	))
-	if entitlement.Slug != assignedEntitlement {
-		grants = append(grants, grant.NewGrant(
-			entitlement.Resource,
-			entitlement.Slug,
-			rID,
-		))
-	}
+		&v2.ResourceId{
+			ResourceType: userResourceType.Id,
+			Resource:     userId,
+		},
+	)
 
-	return grants, nil, nil
+	return []*v2.Grant{grant}, nil, nil
 }
 
 func (o *courseBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
