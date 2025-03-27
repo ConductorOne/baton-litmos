@@ -207,7 +207,6 @@ func (o *courseBuilder) Grant(ctx context.Context, principal *v2.Resource, entit
 			zap.String("principal_id", principal.Id.Resource),
 		)
 		return nil, nil, status.Error(codes.InvalidArgument, "litmos-connector: only users can be granted course entitlement")
-
 	}
 
 	courseId := entitlement.Resource.Id.Resource
