@@ -1,9 +1,12 @@
+//nolint:bodyclose // Response bodies are closed by the uhttp wrapper
 package litmos
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -70,7 +73,7 @@ func (c *Client) Do(ctx context.Context, method string, path string, query *url.
 		return nil, err
 	}
 	l.Debug("sending request", zap.String("url", url.String()), zap.String("method", method))
-	resp, err := c.wrapper.Do(req, uhttp.WithXMLResponse(response))
+	resp, err := c.wrapper.Do(req, withXMLOrEmptyResponse(response))
 	if err != nil && resp != nil {
 		// Retry 503s & 504s because the Litmos API is flaky
 		if resp.StatusCode == http.StatusGatewayTimeout || resp.StatusCode == http.StatusServiceUnavailable {
@@ -292,4 +295,77 @@ func (c *Client) ListModules(ctx context.Context, pToken *pagination.Token, cour
 
 	nextPageToken := getNextPageToken(pToken, len(modulesResp.Modules))
 	return modulesResp.Modules, nextPageToken, nil
+}
+
+func (c *Client) AssignCourseToUser(ctx context.Context, userId string, courseId string) error {
+	path, err := url.JoinPath("/v1.svc/users", userId, "courses")
+	if err != nil {
+		return err
+	}
+	body := struct {
+		XMLName xml.Name `xml:"Courses"`
+		Course  []struct {
+			Id string `xml:"Id"`
+		} `xml:"Course"`
+	}{
+		Course: []struct {
+			Id string `xml:"Id"`
+		}{
+			{Id: courseId},
+		},
+	}
+
+	_, err = c.Do(ctx, "POST", path, nil, nil, withXMLBody(body))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Client) RemoveCourseFromUser(ctx context.Context, userId string, courseId string) error {
+	path, err := url.JoinPath("/v1.svc/users", userId, "courses", courseId)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Do(ctx, "DELETE", path, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TODO: Pull up into sdk
+func withXMLBody(body interface{}) uhttp.RequestOption {
+	return func() (io.ReadWriter, map[string]string, error) {
+		var buffer bytes.Buffer
+
+		err := xml.NewEncoder(&buffer).Encode(body)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		_, headers, err := uhttp.WithContentType("application/xml")()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return &buffer, headers, nil
+	}
+}
+
+func withXMLOrEmptyResponse(response interface{}) uhttp.DoOption {
+	return func(resp *uhttp.WrapperResponse) error {
+		// Handle successful POST requests that don't return a body
+		if resp.Header.Get(uhttp.ContentType) == "" && len(resp.Body) == 0 {
+			return nil
+		}
+		if uhttp.IsXMLContentType(resp.Header.Get(uhttp.ContentType)) {
+			return uhttp.WithXMLResponse(response)(resp)
+		}
+
+		return status.Error(codes.Unknown, "unsupported content type")
+	}
 }

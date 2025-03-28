@@ -1,5 +1,5 @@
 {
-  "source": ["./dist/macos-arm64_darwin_arm64/baton-litmos"],
+  "source": ["./dist/macos-arm64_darwin_arm64_v8.0/baton-litmos"],
   "bundle_id": "com.conductorone.baton-litmos",
   "apple_id": {
     "username" : "justin.gallardo@conductorone.com"

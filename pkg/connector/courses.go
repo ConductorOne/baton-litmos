@@ -12,6 +12,10 @@ import (
 	"github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -191,6 +195,63 @@ func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, pToke
 	}
 
 	return rv, nextPageToken, nil, nil
+}
+
+func (o *courseBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) ([]*v2.Grant, annotations.Annotations, error) {
+	l := ctxzap.Extract(ctx)
+
+	if principal.Id.ResourceType != userResourceType.Id {
+		l.Warn(
+			"litmos-connector: only users can be granted course entitlement",
+			zap.String("principal_type", principal.Id.ResourceType),
+			zap.String("principal_id", principal.Id.Resource),
+		)
+		return nil, nil, status.Error(codes.InvalidArgument, "litmos-connector: only users can be granted course entitlement")
+	}
+
+	courseId := entitlement.Resource.Id.Resource
+	userId := principal.Id.Resource
+
+	err := o.client.AssignCourseToUser(ctx, userId, courseId)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	grant := grant.NewGrant(
+		entitlement.Resource,
+		assignedEntitlement,
+		&v2.ResourceId{
+			ResourceType: userResourceType.Id,
+			Resource:     userId,
+		},
+	)
+
+	return []*v2.Grant{grant}, nil, nil
+}
+
+func (o *courseBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
+	l := ctxzap.Extract(ctx)
+
+	principal := grant.Principal
+	entitlement := grant.Entitlement
+
+	if principal.Id.ResourceType != userResourceType.Id {
+		l.Warn(
+			"litmos-connector: only users can be revoked from course entitlement",
+			zap.String("principal_type", principal.Id.ResourceType),
+			zap.String("principal_id", principal.Id.Resource),
+		)
+		return nil, status.Error(codes.InvalidArgument, "litmos-connector: only users can be revoked from course entitlement")
+	}
+
+	courseId := entitlement.Resource.Id.Resource
+
+	err := o.client.RemoveCourseFromUser(ctx, principal.Id.Resource, courseId)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 func newCourseBuilder(client litmos.Client, limitCourses mapset.Set[string], enableModules bool) *courseBuilder {

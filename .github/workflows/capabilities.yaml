@@ -24,6 +24,9 @@ jobs:
         run: go build -o connector ./cmd/baton-litmos
 
       - name: Run and save output
+        env:
+           BATON_API_KEY: example
+           BATON_SOURCE: example
         run: ./connector capabilities > baton_capabilities.json
 
       - name: Commit changes
