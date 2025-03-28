@@ -7,21 +7,8 @@
         "displayName": "Course"
       },
       "capabilities": [
-        "CAPABILITY_SYNC"
-      ]
-    },
-    {
-      "resourceType": {
-        "id": "module",
-        "displayName": "Module",
-        "annotations": [
-          {
-            "@type": "type.googleapis.com/c1.connector.v2.SkipEntitlementsAndGrants"
-          }
-        ]
-      },
-      "capabilities": [
-        "CAPABILITY_SYNC"
+        "CAPABILITY_SYNC",
+        "CAPABILITY_PROVISION"
       ]
     },
     {
@@ -55,6 +42,7 @@
     }
   ],
   "connectorCapabilities": [
-    "CAPABILITY_SYNC"
+    "CAPABILITY_SYNC",
+    "CAPABILITY_PROVISION"
   ]
 }
