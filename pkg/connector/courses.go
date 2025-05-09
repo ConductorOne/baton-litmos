@@ -199,7 +199,7 @@ func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, pToke
 }
 
 func (o *courseBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) ([]*v2.Grant, annotations.Annotations, error) {
-	if o.attempt < 2 {
+	if o.attempt < 30 {
 		o.attempt++
 		return nil, nil, status.Error(codes.Unavailable, "rate limit error")
 	}
