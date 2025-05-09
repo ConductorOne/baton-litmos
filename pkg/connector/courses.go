@@ -27,6 +27,7 @@ type courseBuilder struct {
 	client        litmos.Client
 	limitCourses  mapset.Set[string]
 	enableModules bool
+	attempt       int
 }
 
 func (o *courseBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
@@ -198,35 +199,11 @@ func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, pToke
 }
 
 func (o *courseBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) ([]*v2.Grant, annotations.Annotations, error) {
-	l := ctxzap.Extract(ctx)
-
-	if principal.Id.ResourceType != userResourceType.Id {
-		l.Warn(
-			"litmos-connector: only users can be granted course entitlement",
-			zap.String("principal_type", principal.Id.ResourceType),
-			zap.String("principal_id", principal.Id.Resource),
-		)
-		return nil, nil, status.Error(codes.InvalidArgument, "litmos-connector: only users can be granted course entitlement")
+	if o.attempt < 2 {
+		o.attempt++
+		return nil, nil, status.Error(codes.Unavailable, "rate limit error")
 	}
-
-	courseId := entitlement.Resource.Id.Resource
-	userId := principal.Id.Resource
-
-	err := o.client.AssignCourseToUser(ctx, userId, courseId)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	grant := grant.NewGrant(
-		entitlement.Resource,
-		assignedEntitlement,
-		&v2.ResourceId{
-			ResourceType: userResourceType.Id,
-			Resource:     userId,
-		},
-	)
-
-	return []*v2.Grant{grant}, nil, nil
+	return nil, nil, nil
 }
 
 func (o *courseBuilder) Revoke(ctx context.Context, grant *v2.Grant) (annotations.Annotations, error) {
