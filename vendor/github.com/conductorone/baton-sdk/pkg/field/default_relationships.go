@@ -4,7 +4,10 @@ var DefaultRelationships = []SchemaFieldRelationship{
 	FieldsRequiredTogether(grantEntitlementField, grantPrincipalField),
 	FieldsRequiredTogether(clientIDField, clientSecretField),
 	FieldsRequiredTogether(createTicketField, ticketTemplatePathField),
+	FieldsRequiredTogether(bulkCreateTicketField, bulkTicketTemplatePathField),
 	FieldsRequiredTogether(getTicketField, ticketIDField),
+	FieldsRequiredTogether(diffSyncsField, diffSyncsBaseSyncField, diffSyncsAppliedSyncField),
+	FieldsRequiredTogether(compactSyncsField, compactSyncIDsField, compactFilePathsField, compactOutputDirectoryField),
 	FieldsMutuallyExclusive(
 		grantEntitlementField,
 		revokeGrantField,
@@ -15,6 +18,7 @@ var DefaultRelationships = []SchemaFieldRelationship{
 		createTicketField,
 		getTicketField,
 		ListTicketSchemasField,
+		bulkCreateTicketField,
 	),
 	FieldsMutuallyExclusive(
 		grantEntitlementField,
@@ -23,7 +27,17 @@ var DefaultRelationships = []SchemaFieldRelationship{
 		deleteResourceTypeField,
 		rotateCredentialsTypeField,
 		eventFeedField,
+		diffSyncsField,
+		compactSyncsField,
 		ListTicketSchemasField,
+	),
+	FieldsDependentOn(
+		[]SchemaField{externalResourceEntitlementIdFilter},
+		[]SchemaField{externalResourceC1ZField},
+	),
+	FieldsDependentOn(
+		[]SchemaField{skipGrants},
+		[]SchemaField{targetedSyncResourceIDs},
 	),
 }
 

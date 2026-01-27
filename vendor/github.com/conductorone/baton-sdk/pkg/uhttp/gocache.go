@@ -4,143 +4,267 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httputil"
-	"sort"
-	"strings"
+	"os"
+	"strconv"
 	"time"
 
-	bigCache "github.com/allegro/bigcache/v3"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"github.com/maypok86/otter/v2"
+	"github.com/maypok86/otter/v2/stats"
 	"go.uber.org/zap"
 )
 
+const (
+	cacheTTLMaximum    time.Duration = 31536000 * time.Second // 31536000 seconds = one year
+	cacheTTLDefault    time.Duration = 3600 * time.Second     // 3600 seconds = one hour
+	defaultCacheSizeMb uint64        = 5                      // MB
+)
+
+type CacheBackend string
+
+const (
+	CacheBackendDB     CacheBackend = "db"
+	CacheBackendMemory CacheBackend = "memory"
+	CacheBackendNoop   CacheBackend = "noop"
+)
+
+type CacheConfig struct {
+	LogDebug  bool
+	TTL       time.Duration // If 0, cache is disabled
+	MaxSizeMb uint64        // MB
+	Backend   CacheBackend  // If noop, cache is disabled
+}
+
+type CacheStats struct {
+	Hits   uint64
+	Misses uint64
+}
+
+type ContextKey struct{}
+
 type GoCache struct {
-	rootLibrary *bigCache.BigCache
+	rootLibrary *otter.Cache[string, []byte]
 }
 
-func NewGoCache(ctx context.Context, cfg CacheConfig) (GoCache, error) {
+type NoopCache struct {
+	counter uint64
+}
+
+func NewNoopCache(ctx context.Context) *NoopCache {
+	return &NoopCache{}
+}
+
+func (g *NoopCache) Get(req *http.Request) (*http.Response, error) {
+	// This isn't threadsafe but who cares? It's the noop cache.
+	g.counter++
+	return nil, nil
+}
+
+func (n *NoopCache) Set(req *http.Request, value *http.Response) error {
+	return nil
+}
+
+func (n *NoopCache) Clear(ctx context.Context) error {
+	return nil
+}
+
+func (n *NoopCache) Stats(ctx context.Context) CacheStats {
+	return CacheStats{
+		Hits:   0,
+		Misses: n.counter,
+	}
+}
+
+func (cc *CacheConfig) ToString() string {
+	return fmt.Sprintf("Backend: %v, TTL: %d, MaxSize: %dMB, LogDebug: %t", cc.Backend, cc.TTL, cc.MaxSizeMb, cc.LogDebug)
+}
+
+func DefaultCacheConfig() CacheConfig {
+	return CacheConfig{
+		TTL:       cacheTTLDefault,
+		MaxSizeMb: defaultCacheSizeMb,
+		LogDebug:  false,
+		Backend:   CacheBackendMemory,
+	}
+}
+
+func NewCacheConfigFromEnv() *CacheConfig {
+	config := DefaultCacheConfig()
+
+	cacheMaxSize, err := strconv.ParseInt(os.Getenv("BATON_HTTP_CACHE_MAX_SIZE"), 10, 64)
+	if err == nil && cacheMaxSize >= 0 {
+		config.MaxSizeMb = uint64(cacheMaxSize)
+	}
+
+	cacheTTL, err := strconv.ParseInt(os.Getenv("BATON_HTTP_CACHE_TTL"), 10, 64)
+	if err == nil {
+		config.TTL = min(cacheTTLMaximum, max(0, time.Duration(cacheTTL)*time.Second))
+	}
+
+	cacheBackend := os.Getenv("BATON_HTTP_CACHE_BACKEND")
+	switch cacheBackend {
+	case "db":
+		config.Backend = CacheBackendDB
+	case "memory":
+		config.Backend = CacheBackendMemory
+	case "noop":
+		config.Backend = CacheBackendNoop
+	}
+
+	disableCache, err := strconv.ParseBool(os.Getenv("BATON_DISABLE_HTTP_CACHE"))
+	if err != nil {
+		disableCache = false
+	}
+	if disableCache {
+		config.Backend = CacheBackendNoop
+	}
+
+	return &config
+}
+
+func NewCacheConfigFromCtx(ctx context.Context) (*CacheConfig, error) {
+	defaultConfig := DefaultCacheConfig()
+	if v := ctx.Value(ContextKey{}); v != nil {
+		ctxConfig, ok := v.(CacheConfig)
+		if !ok {
+			return nil, fmt.Errorf("error casting config values from context")
+		}
+		return &ctxConfig, nil
+	}
+	return &defaultConfig, nil
+}
+
+func NewHttpCache(ctx context.Context, config *CacheConfig) (icache, error) {
 	l := ctxzap.Extract(ctx)
-	if cfg.DisableCache {
-		l.Debug("http cache disabled")
-		return GoCache{}, nil
-	}
-	config := bigCache.DefaultConfig(time.Duration(cfg.CacheTTL) * time.Second)
-	config.Verbose = cfg.LogDebug
-	config.Shards = 4
-	config.HardMaxCacheSize = cfg.CacheMaxSize // value in MB, 0 value means no size limit
-	cache, err := bigCache.New(ctx, config)
-	if err != nil {
-		l.Error("http cache initialization error", zap.Error(err))
-		return GoCache{}, err
+
+	if config == nil {
+		config = NewCacheConfigFromEnv()
 	}
 
-	l.Debug("http cache config",
-		zap.Dict("config",
-			zap.Int("Shards", config.Shards),
-			zap.Duration("LifeWindow", config.LifeWindow),
-			zap.Duration("CleanWindow", config.CleanWindow),
-			zap.Int("MaxEntriesInWindow", config.MaxEntriesInWindow),
-			zap.Int("MaxEntrySize", config.MaxEntrySize),
-			zap.Bool("StatsEnabled", config.StatsEnabled),
-			zap.Bool("Verbose", config.Verbose),
-			zap.Int("HardMaxCacheSize", config.HardMaxCacheSize),
-		))
-	gc := GoCache{
-		rootLibrary: cache,
+	l.Info("http cache config", zap.String("config", config.ToString()))
+
+	if config.TTL == 0 {
+		l.Debug("NewHttpCache: Cache TTL is 0, disabling cache.", zap.Duration("cache_ttl", config.TTL))
+		return NewNoopCache(ctx), nil
 	}
 
-	return gc, nil
-}
-
-func (g *GoCache) Statistics() bigCache.Stats {
-	if g.rootLibrary == nil {
-		return bigCache.Stats{}
-	}
-
-	return g.rootLibrary.Stats()
-}
-
-// CreateCacheKey generates a cache key based on the request URL, query parameters, and headers.
-// The key is a SHA-256 hash of the normalized URL path, sorted query parameters, and relevant headers.
-func CreateCacheKey(req *http.Request) (string, error) {
-	// Normalize the URL path
-	path := strings.ToLower(req.URL.Path)
-
-	// Combine the path with sorted query parameters
-	queryParams := req.URL.Query()
-	var sortedParams []string
-	for k, v := range queryParams {
-		for _, value := range v {
-			sortedParams = append(sortedParams, fmt.Sprintf("%s=%s", k, value))
+	switch config.Backend {
+	case CacheBackendNoop:
+		l.Debug("Using noop cache")
+		return NewNoopCache(ctx), nil
+	case CacheBackendMemory:
+		l.Debug("Using in-memory cache")
+		memCache, err := NewGoCache(ctx, *config)
+		if err != nil {
+			l.Error("error creating http cache (in-memory)", zap.Error(err), zap.Any("config", *config))
+			return nil, err
 		}
+		return memCache, nil
+	case CacheBackendDB:
+		l.Debug("Using db cache")
+		dbCache, err := NewDBCache(ctx, *config)
+		if err != nil {
+			l.Error("error creating http cache (db-cache)", zap.Error(err), zap.Any("config", *config))
+			return nil, err
+		}
+		return dbCache, nil
 	}
 
-	sort.Strings(sortedParams)
-	queryString := strings.Join(sortedParams, "&")
+	return NewNoopCache(ctx), nil
+}
 
-	// Include relevant headers in the cache key
-	var headerParts []string
-	for key, values := range req.Header {
-		for _, value := range values {
-			if key == "Accept" || key == "Authorization" || key == "Cookie" || key == "Range" {
-				headerParts = append(headerParts, fmt.Sprintf("%s=%s", key, value))
+func NewGoCache(ctx context.Context, cfg CacheConfig) (*GoCache, error) {
+	l := ctxzap.Extract(ctx)
+	gc := GoCache{}
+	maxSize := cfg.MaxSizeMb * 1024 * 1024
+	if maxSize > math.MaxInt {
+		return nil, fmt.Errorf("error converting max size to bytes")
+	}
+	cache, err := otter.New(&otter.Options[string, []byte]{
+		MaximumWeight: maxSize,
+		StatsRecorder: stats.NewCounter(),
+		Weigher: func(key string, value []byte) uint32 {
+			weight64 := uint64(len(key)) + uint64(len(value))
+			if weight64 > uint64(math.MaxUint32) {
+				return math.MaxUint32
 			}
-		}
-	}
+			return uint32(weight64)
+		},
+		ExpiryCalculator: otter.ExpiryWriting[string, []byte](cfg.TTL),
+	})
 
-	sort.Strings(headerParts)
-	headersString := strings.Join(headerParts, "&")
-
-	// Create a unique string for the cache key
-	cacheString := fmt.Sprintf("%s?%s&headers=%s", path, queryString, headersString)
-
-	// Hash the cache string to create a key
-	hash := sha256.New()
-	_, err := hash.Write([]byte(cacheString))
 	if err != nil {
-		return "", err
+		l.Error("cache initialization error", zap.Error(err))
+		return nil, err
 	}
 
-	cacheKey := fmt.Sprintf("%x", hash.Sum(nil))
-	return cacheKey, nil
+	l.Debug("otter cache initialized", zap.Uint64("capacity", cache.GetMaximum()))
+	gc.rootLibrary = cache
+
+	return &gc, nil
 }
 
-func (g *GoCache) Get(key string) (*http.Response, error) {
+func (g *GoCache) Stats(ctx context.Context) CacheStats {
+	if g.rootLibrary == nil {
+		return CacheStats{}
+	}
+	stats := g.rootLibrary.Stats()
+	return CacheStats{
+		Hits:   stats.Hits,
+		Misses: stats.Misses,
+	}
+}
+
+func (g *GoCache) Get(req *http.Request) (*http.Response, error) {
 	if g.rootLibrary == nil {
 		return nil, nil
 	}
 
-	entry, err := g.rootLibrary.Get(key)
-	if err == nil {
-		r := bufio.NewReader(bytes.NewReader(entry))
-		resp, err := http.ReadResponse(r, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		return resp, nil
+	key, err := CreateCacheKey(req)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, nil
+	entry, found := g.rootLibrary.GetIfPresent(key)
+	if !found {
+		return nil, nil
+	}
+
+	if len(entry) == 0 {
+		return nil, nil
+	}
+
+	r := bufio.NewReader(bytes.NewReader(entry))
+	resp, err := http.ReadResponse(r, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
 
-func (g *GoCache) Set(key string, value *http.Response) error {
+func (g *GoCache) Set(req *http.Request, value *http.Response) error {
 	if g.rootLibrary == nil {
 		return nil
 	}
 
-	cacheableResponse, err := httputil.DumpResponse(value, true)
+	key, err := CreateCacheKey(req)
 	if err != nil {
 		return err
 	}
 
-	err = g.rootLibrary.Set(key, cacheableResponse)
+	newValue, err := httputil.DumpResponse(value, true)
 	if err != nil {
 		return err
 	}
+
+	// Otter's cost function rejects large responses if there's not enough room
+	// TODO: return some error or warning that we couldn't set?
+	_, _ = g.rootLibrary.Set(key, newValue)
 
 	return nil
 }
@@ -150,10 +274,7 @@ func (g *GoCache) Delete(key string) error {
 		return nil
 	}
 
-	err := g.rootLibrary.Delete(key)
-	if err != nil {
-		return err
-	}
+	g.rootLibrary.Invalidate(key)
 
 	return nil
 }
@@ -165,14 +286,7 @@ func (g *GoCache) Clear(ctx context.Context) error {
 		return nil
 	}
 
-	err := g.rootLibrary.Reset()
-	if err != nil {
-		return err
-	}
-	err = g.rootLibrary.ResetStats()
-	if err != nil {
-		return err
-	}
+	g.rootLibrary.InvalidateAll()
 
 	l.Debug("reset cache")
 	return nil
@@ -182,6 +296,6 @@ func (g *GoCache) Has(key string) bool {
 	if g.rootLibrary == nil {
 		return false
 	}
-	_, found := g.rootLibrary.Get(key)
-	return found == nil
+	_, found := g.rootLibrary.GetIfPresent(key)
+	return found
 }
