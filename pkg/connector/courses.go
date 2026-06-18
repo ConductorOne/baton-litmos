@@ -7,7 +7,6 @@ import (
 	"github.com/conductorone/baton-litmos/pkg/litmos"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
-	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/types/entitlement"
 	"github.com/conductorone/baton-sdk/pkg/types/grant"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
@@ -79,41 +78,46 @@ func courseResource(ctx context.Context, course *litmos.Course, parentResourceID
 	return resource, nil
 }
 
-func (o *courseBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
+func (o *courseBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, opts rs.SyncOpAttrs) ([]*v2.Resource, *rs.SyncOpResults, error) {
 	if o.limitCourses != nil {
 		resources := make([]*v2.Resource, 0, len(o.limitCourses.ToSlice()))
 		for _, courseId := range o.limitCourses.ToSlice() {
 			course, err := o.client.GetCourse(ctx, courseId)
 			if err != nil {
-				return nil, "", nil, err
+				return nil, nil, err
 			}
 			resource, err := courseResource(ctx, course, parentResourceID, o.enableModules)
 			if err != nil {
-				return nil, "", nil, err
+				return nil, nil, err
 			}
 			resources = append(resources, resource)
 		}
-		return resources, "", nil, nil
+		return resources, nil, nil
 	}
 
+	pToken := &opts.PageToken
 	courses, nextPageToken, err := o.client.ListCourses(ctx, pToken)
 	if err != nil {
-		return nil, nextPageToken, nil, err
+		return nil, nil, err
 	}
 
 	resources := make([]*v2.Resource, 0, len(courses))
 	for _, course := range courses {
 		resource, err := courseResource(ctx, &course, parentResourceID, o.enableModules)
 		if err != nil {
-			return nil, "", nil, err
+			return nil, nil, err
 		}
 		resources = append(resources, resource)
 	}
-	return resources, nextPageToken, nil, nil
+
+	if nextPageToken == "" {
+		return resources, nil, nil
+	}
+	return resources, &rs.SyncOpResults{NextPageToken: nextPageToken}, nil
 }
 
 // Entitlements always returns an empty slice for users.
-func (o *courseBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
+func (o *courseBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ rs.SyncOpAttrs) ([]*v2.Entitlement, *rs.SyncOpResults, error) {
 	var rv []*v2.Entitlement
 	assignedOptions := []entitlement.EntitlementOption{
 		entitlement.WithGrantableTo(userResourceType),
@@ -149,27 +153,28 @@ func (o *courseBuilder) Entitlements(_ context.Context, resource *v2.Resource, _
 		),
 	}
 	rv = append(rv, entitlements...)
-	return rv, "", nil, nil
+	return rv, nil, nil
 }
 
 // Grants always returns an empty slice for users since they don't have any entitlements.
-func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
+func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, opts rs.SyncOpAttrs) ([]*v2.Grant, *rs.SyncOpResults, error) {
 	if o.limitCourses != nil {
 		if !o.limitCourses.Contains(resource.Id.Resource) {
-			return nil, "", nil, nil
+			return nil, nil, nil
 		}
 	}
 
+	pToken := &opts.PageToken
 	users, nextPageToken, err := o.client.ListCourseUsers(ctx, pToken, resource.Id.Resource)
 	if err != nil {
-		return nil, nextPageToken, nil, err
+		return nil, nil, err
 	}
 
 	rv := make([]*v2.Grant, 0, len(users))
 	for _, user := range users {
 		rID, err := rs.NewResourceID(userResourceType, user.Id)
 		if err != nil {
-			return rv, nextPageToken, nil, err
+			return rv, nil, err
 		}
 
 		grants := []*v2.Grant{grant.NewGrant(
@@ -194,7 +199,10 @@ func (o *courseBuilder) Grants(ctx context.Context, resource *v2.Resource, pToke
 		rv = append(rv, grants...)
 	}
 
-	return rv, nextPageToken, nil, nil
+	if nextPageToken == "" {
+		return rv, nil, nil
+	}
+	return rv, &rs.SyncOpResults{NextPageToken: nextPageToken}, nil
 }
 
 func (o *courseBuilder) Grant(ctx context.Context, principal *v2.Resource, entitlement *v2.Entitlement) ([]*v2.Grant, annotations.Annotations, error) {

@@ -5,8 +5,6 @@ import (
 
 	"github.com/conductorone/baton-litmos/pkg/litmos"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
-	"github.com/conductorone/baton-sdk/pkg/annotations"
-	"github.com/conductorone/baton-sdk/pkg/pagination"
 	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
 )
 
@@ -33,32 +31,37 @@ func moduleResource(ctx context.Context, module *litmos.Module, parentResourceID
 	return resource, nil
 }
 
-func (o *moduleBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
+func (o *moduleBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, opts rs.SyncOpAttrs) ([]*v2.Resource, *rs.SyncOpResults, error) {
 	if parentResourceID == nil {
-		return nil, "", nil, nil
+		return nil, nil, nil
 	}
+	pToken := &opts.PageToken
 	modules, nextPageToken, err := o.client.ListModules(ctx, pToken, parentResourceID.Resource)
 	if err != nil {
-		return nil, nextPageToken, nil, err
+		return nil, nil, err
 	}
 
 	resources := make([]*v2.Resource, 0, len(modules))
 	for _, module := range modules {
 		resource, err := moduleResource(ctx, &module, parentResourceID)
 		if err != nil {
-			return nil, "", nil, err
+			return nil, nil, err
 		}
 		resources = append(resources, resource)
 	}
-	return resources, nextPageToken, nil, nil
+
+	if nextPageToken == "" {
+		return resources, nil, nil
+	}
+	return resources, &rs.SyncOpResults{NextPageToken: nextPageToken}, nil
 }
 
-func (o *moduleBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ *pagination.Token) ([]*v2.Entitlement, string, annotations.Annotations, error) {
-	return nil, "", nil, nil
+func (o *moduleBuilder) Entitlements(_ context.Context, resource *v2.Resource, _ rs.SyncOpAttrs) ([]*v2.Entitlement, *rs.SyncOpResults, error) {
+	return nil, nil, nil
 }
 
-func (o *moduleBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
-	return nil, "", nil, nil
+func (o *moduleBuilder) Grants(ctx context.Context, resource *v2.Resource, opts rs.SyncOpAttrs) ([]*v2.Grant, *rs.SyncOpResults, error) {
+	return nil, nil, nil
 }
 
 func newModuleBuilder(client litmos.Client) *moduleBuilder {
