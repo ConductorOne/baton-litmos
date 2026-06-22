@@ -22,14 +22,25 @@ import (
 // TODO: make this configurable. litmos API allows for page sizes up to 1,000
 const pageSize = 500
 
+const defaultBaseURL = "https://api.litmos.com"
+
 type Client struct {
 	wrapper *uhttp.BaseHttpClient
 	apiKey  string
 	source  string
+	baseURL *url.URL
 }
 
-func NewClient(ctx context.Context, apiKey, source string) (*Client, error) {
+func NewClient(ctx context.Context, apiKey, source, baseURL string) (*Client, error) {
 	options := []uhttp.Option{uhttp.WithLogger(true, nil)}
+
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
+	parsedBase, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing base-url: %w", err)
+	}
 
 	httpClient, err := uhttp.NewClient(ctx, options...)
 	if err != nil {
@@ -45,6 +56,7 @@ func NewClient(ctx context.Context, apiKey, source string) (*Client, error) {
 		wrapper: wrapper,
 		apiKey:  apiKey,
 		source:  source,
+		baseURL: parsedBase,
 	}, nil
 }
 
@@ -59,8 +71,8 @@ func (c *Client) Do(ctx context.Context, method string, path string, query *url.
 		rawQuery = query.Encode()
 	}
 	url := &url.URL{
-		Scheme:   "https",
-		Host:     "api.litmos.com",
+		Scheme:   c.baseURL.Scheme,
+		Host:     c.baseURL.Host,
 		Path:     path,
 		RawQuery: rawQuery,
 	}

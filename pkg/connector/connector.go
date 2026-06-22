@@ -54,8 +54,8 @@ func (d *LitmosConnector) Validate(ctx context.Context) (annotations.Annotations
 }
 
 // New returns a new instance of the connector.
-func New(ctx context.Context, apiKey, source string, limitCourses []string) (*LitmosConnector, error) {
-	cli, err := litmos.NewClient(ctx, apiKey, source)
+func New(ctx context.Context, apiKey, source, baseURL string, limitCourses []string) (*LitmosConnector, error) {
+	cli, err := litmos.NewClient(ctx, apiKey, source, baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func New(ctx context.Context, apiKey, source string, limitCourses []string) (*Li
 
 // NewLambdaConnector satisfies cli.NewConnector for use with config.RunConnector.
 func NewLambdaConnector(ctx context.Context, ac *cfg.Litmos, _ *cli.ConnectorOpts) (connectorbuilder.ConnectorBuilderV2, []connectorbuilder.Opt, error) {
-	cb, err := New(ctx, ac.ApiKey, ac.Source, ac.LimitedCourses)
+	cb, err := New(ctx, ac.ApiKey, ac.Source, ac.BaseUrl, ac.LimitedCourses)
 	if err != nil {
 		return nil, nil, err
 	}

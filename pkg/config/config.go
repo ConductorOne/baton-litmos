@@ -20,7 +20,14 @@ var (
 	)
 	limitCoursesField = field.StringSliceField(
 		"limited-courses",
+		field.WithDisplayName("Course IDs"),
 		field.WithDescription("Limit imported sources to a specific list by Course ID"),
+	)
+	baseURLField = field.StringField(
+		"base-url",
+		field.WithDescription("Override the Litmos API base URL (for testing)"),
+		field.WithExportTarget(field.ExportTargetCLIOnly),
+		field.WithHidden(true),
 	)
 )
 
@@ -30,6 +37,7 @@ var Config = field.NewConfiguration(
 		apiKeyField,
 		sourceField,
 		limitCoursesField,
+		baseURLField,
 	},
 	field.WithConnectorDisplayName("Litmos"),
 	field.WithIconUrl("/static/app-icons/litmos.svg"),
