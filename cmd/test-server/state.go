@@ -292,7 +292,7 @@ func (s *State) AssignCourseToUser(userID, courseID string) bool {
 
 // RemoveCourseFromUser removes userID from courseID's enrollments.
 // Returns (found, courseExists).
-func (s *State) RemoveCourseFromUser(userID, courseID string) (enrolled bool, courseExists bool) {
+func (s *State) RemoveCourseFromUser(userID, courseID string) (bool, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.courses[courseID]; !ok {

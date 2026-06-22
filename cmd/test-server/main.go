@@ -8,7 +8,9 @@ import (
 	"encoding/xml"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
+	"time"
 )
 
 const (
@@ -83,7 +85,15 @@ func main() {
 	mux.HandleFunc("DELETE /v1.svc/users/{id}/courses/{courseId}", s.requireAuth(s.handleRemoveCourseFromUser))
 
 	log.Printf("litmos test server listening on :%s (apikey=%s)", serverPort, testAPIKey)
-	log.Fatal(http.ListenAndServe(":"+serverPort, mux))
+	srv := &http.Server{
+		Addr:              ":" + serverPort,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 }
 
 // requireAuth validates the apikey header on every request.
@@ -120,7 +130,7 @@ func atoiOr(s string, def int) int {
 
 // pageParams returns start offset and limit from the request query.
 // Litmos pagination uses ?start=N&limit=M (default limit 500).
-func pageParams(r *http.Request) (start, limit int) {
+func pageParams(r *http.Request) (int, int) {
 	return atoiOr(r.URL.Query().Get("start"), 0),
 		atoiOr(r.URL.Query().Get("limit"), 500)
 }

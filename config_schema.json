@@ -119,6 +119,7 @@
     },
     {
       "name": "limited-courses",
+      "displayName": "Course IDs",
       "description": "Limit imported sources to a specific list by Course ID",
       "stringSliceField": {}
     }
